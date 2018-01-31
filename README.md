@@ -43,6 +43,7 @@ ______________
 **Client:**
 - Despite not needing to print anything out to STDOUT for the client, we have print statements that create a more friendly/informative interface for the user
 
+
 *Project instructions state that we don't necessarily have to print anything out to STDOUT for the client, but we believe that it is more helpful to the user if there are print statements that display the progress of the connections established, files being sent and sorted, etc.*
 
 ___________________________
