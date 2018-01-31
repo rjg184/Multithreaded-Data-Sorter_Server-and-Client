@@ -2,6 +2,12 @@
 
 ______________
 
+# Abstract / Project Description
+
+This is the fourth and final part in a series of projects that will involve sorting a large amount of data. In this fourth phase, you will write a multithreaded C server and C client program to sort a list of records of movies from imdb alphabetically by the data in a given column. You will make use of the concepts learned in lecture including file/directory access, pthreads, and synchronization constructs (locks/semaphores), and sockets.
+
+______________
+
 # Usage
 
 **Possible Client Inputs (sorter_client):**
