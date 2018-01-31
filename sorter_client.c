@@ -15,6 +15,7 @@
 #include "mergesort.c"
 #include <pthread.h>
 
+// Global Variables
 char *sortpath;	//Path leading to the file being sorted
 char *category;
 char *output_dir;
@@ -24,7 +25,7 @@ long port = -1;
 char* hostname;
 char ipAddr[256];
 
-void removeQuotes(char *input){
+void removeQuotes(char *input) {
 	
 	int i;
 	
@@ -40,41 +41,46 @@ void removeQuotes(char *input){
 		input[strlen(input)-1] = '\0';
 	}
 
-}
+} //end of 'removeQuotes' function
 
-int isCSV(char * string){
+int isCSV(char * string) {
+    
 	int length = strlen(string);
-	if(length<4){
+    
+	if(length < 4){
 		//printf("String is too short to be a CSV file!\n");
 		return 0;
 	}
-	char * ending = malloc(sizeof(char)*length);
+    
+	char *ending = malloc(sizeof(char)*length);
 	strncpy(ending, string+length-4, 4);
 
 	if(strcmp(ending,".csv") == 0){ //0 means that this is a CSV file.
 		free(ending);
 		return 1;
-	}else{ 				//1 means that this is not a CSV file.
+	} else {  //1 means that this is not a CSV file.
 		free(ending);
 		return 0;
 	}
 
 	free(ending);
 	return 0;
-}
 
-void* sendFile(void * csvname){
-	FILE * fp=fopen(csvname, "r");
+} //end of 'isCSV' function
+
+void *sendFile(void * csvname) {
+    
+	FILE *fp = fopen(csvname, "r");
 	char num[20];
 
 	int sockfd;
 	struct sockaddr_in servaddr;
 
 	sockfd = socket(AF_INET, SOCK_STREAM, 0);
-	bzero(&servaddr,sizeof(servaddr));
+	bzero(&servaddr, sizeof(servaddr));
 	
-	servaddr.sin_family=AF_INET;
-    	servaddr.sin_port=htons(port);
+	servaddr.sin_family = AF_INET;
+    servaddr.sin_port = htons(port);
 	
 	//inet_pton(AF_INET,"128.6.13.218",&(servaddr.sin_addr));
 	inet_pton(AF_INET,ipAddr,&(servaddr.sin_addr));
@@ -82,9 +88,8 @@ void* sendFile(void * csvname){
 	connect(sockfd,(struct sockaddr *)&servaddr,sizeof(servaddr));
 	
 	int fd = fileno(fp);
-		
 
-	send(sockfd,"Sending_File",20,0);
+	send(sockfd, "Sending_File", 20, 0);
 
 	struct stat st;
 	stat(csvname, &st);
@@ -96,15 +101,18 @@ void* sendFile(void * csvname){
 
 	int err = sendfile(sockfd, fd, NULL, sz); //sends the actual file
 	//printf("Bytes Sent: %i\n",err);
+    
 	if (err == -1){
 		printf("ERROR: Sendfile returned incorrectly.\n");
 		pthread_exit(0);		
 	}
+    
 	if (err != sz){
-		printf("Didn't Send the whole file. \n");
-	}else{
+		printf("Didn't Send the whole file.\n");
+	} else {
 		printf("File sent!\n");		
 	}
+    
 	fclose(fp);
 	char buffer[128];
 	read(sockfd, buffer, 128);
@@ -112,14 +120,15 @@ void* sendFile(void * csvname){
 
 	close(sockfd);
 	pthread_exit(0);
-}
+    
+} //end of 'endFile' function
 
-void* getFile(void * path){
+void* getFile(void *path) {
 
 	pthread_t tid[2500];
 	int tcounter = 0;
 
-	char * path_ptr = (char*) path;
+	char *path_ptr = (char*) path;
 	//printf("Looking through Directory: %s\n", path_ptr);
 
 	DIR * dir;
@@ -127,11 +136,14 @@ void* getFile(void * path){
 	//struct dirent * string;
 	struct dirent * string2 = malloc(5000);
 	//int tnum;
+    
 	while(dir){  //traverses through contents of directory
+        
 		readdir_r(dir, string2, &string2);
+        
 		if(string2 != NULL){  //checks to see if we've checked everything in the directory
 			if(string2->d_type == DT_DIR){  //If directory
-				if( (strcmp(string2->d_name,".") !=0) && (strcmp(string2->d_name, "..") !=0) ){ //no hidden directory
+				if( (strcmp(string2->d_name, ".") != 0) && (strcmp(string2->d_name, "..") != 0) ){ //no hidden directory
 					//printf("found a DIRECTORY <%s>, <------- thread here\n", string2->d_name);
 					//spawn a thread to traverse through sub directory
 					//pthread_t id;
@@ -140,17 +152,20 @@ void* getFile(void * path){
 					
 					int newsize = (strlen(path_ptr) + strlen(string2->d_name) + 1);
 					char * fullpath = malloc(sizeof(char)*(newsize + 1));
-	    				strcpy(fullpath, path_ptr);
-	    				strcat(fullpath, "/");
+                    strcpy(fullpath, path_ptr);
+                    strcat(fullpath, "/");
 					strcat(fullpath, string2->d_name);
 					
-            				pthread_create(&tid[tcounter], NULL, getFile, fullpath); //fullpath should be a pointer
+                    pthread_create(&tid[tcounter], NULL, getFile, fullpath); //fullpath should be a pointer
 					//threadcount++;
 					tcounter++;
 				}
-			}else{  //Not a directory, but could be a csv file
+                
+            } else {  //Not a directory, but could be a csv file
+                
 				int c = isCSV(string2->d_name);
-				if(c==1){
+                
+				if(c == 1){
 					//printf("Found CSV FILE:  %s\n", string2->d_name);
 					//spawn a thread to sort the csv file
 					pthread_attr_t attr;
@@ -158,8 +173,8 @@ void* getFile(void * path){
 					
 					int newsize = (strlen(path_ptr) + strlen(string2->d_name) + 1);
 					char * fullpath = malloc(sizeof(char)*(newsize + 1));
-	    				strcpy(fullpath, path_ptr);
-	    				strcat(fullpath, "/");
+                    strcpy(fullpath, path_ptr);
+                    strcat(fullpath, "/");
 					strcat(fullpath, string2->d_name);
 
 					pthread_create(&tid[tcounter], NULL, sendFile, fullpath);
@@ -167,23 +182,28 @@ void* getFile(void * path){
 					tcounter++;
 				}
 			}
-		}else{ //if theres nothing else to see in the directory, stop looping through directory
+            
+        } else { //if theres nothing else to see in the directory, stop looping through directory
 			break;
 		}
-	}
+        
+	} //end of while loop
+    
 	//sleep(1);
 	int j;
-	for(j=0; j<tcounter; j++){
+	for(j = 0; j < tcounter; j++){
 		pthread_join(tid[j], NULL);
 		//tid[j] = pthread_self();
 		//printf("%lu, ", tid[j]);
 	}
+    
 	//tid[tnum] = pthread_self();
 	//printf("tid is: %lu\n", tid[tnum]);
 	//pthread_join(tid[tnum],NULL);
 
 	pthread_exit(0);
-}
+    
+} //end of 'getFile' function
 
 int main(int argc, char ** argv){
 	
@@ -251,12 +271,10 @@ int main(int argc, char ** argv){
 	port = -1;
 	port = atol(argv[6]);
 	
-	if(port>65565 || port < 0)
-	{
+	if(port>65565 || port < 0){
 		printf("ERROR: Port [%i] is out of range [1-65565]\n.",port);
 		return -1;	
 	}
-
 
 	char *input_dir = malloc(4096); 
 	char * output_dir = malloc(4096);
@@ -485,16 +503,13 @@ int main(int argc, char ** argv){
 	
 	FILE* fp;
 
-	if(hasoutput)
-    	{
+	if(hasoutput){
         mkdir(output_dir,0777);
         strcat(output_dir,"/AllFiles-sorted-");
         strcat(output_dir,category);
         strcat(output_dir,".csv");
     	fp = fopen(output_dir, "w+");
-    	}
-   	else
-	{
+    } else {
         strcat(output_dir,"AllFiles-sorted-");
         strcat(output_dir,category);
         strcat(output_dir,".csv");
@@ -502,23 +517,25 @@ int main(int argc, char ** argv){
 	
 	fp = fopen(output_dir, "w+");
 
-	if(fp==NULL)
-	{
+	if(fp == NULL){
 		printf("output_Dir: %s\n", output_dir);
 		printf("broken\n");
 		return 0;
 	}
+    
 	printf("output_Dir: %s\n", output_dir);
 	 fprintf(fp,"color,director_name,num_critic_for_reviews,duration,director_facebook_likes,actor_3_facebook_likes,actor_2_name,actor_1_facebook_likes,gross,genres,actor_1_name,movie_title,num_voted_users,cast_total_facebook_likes,actor_3_name,facenumber_in_poster,plot_keywords,movie_imdb_link,num_user_for_reviews,language,country,content_rating,budget,title_year,actor_2_facebook_likes,imdb_score,aspect_ratio,movie_facebook_likes\n");
 
-	for(k=0; k<numlines; k++){
-					//this if statement takes each title with a "," and puts quotations around it
-		recv(sockfd,readin,3000,0);
+	for(k = 0; k < numlines; k++){
+        //this if statement takes each title with a "," and puts quotations around it
+		recv(sockfd,readin, 3000, 0);
 		//printf("%s",readin);		
-		fprintf(fp,"%s",readin);
-		bzero(readin,3000);
+		fprintf(fp, "%s", readin);
+		bzero(readin, 3000);
 	}
+    
 	fclose(fp);
 	printf("Sorted filed recieved.\n");
 	return 0;
-}
+    
+} //end of 'main' function

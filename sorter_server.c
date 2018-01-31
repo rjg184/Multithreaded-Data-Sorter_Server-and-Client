@@ -15,7 +15,8 @@
 #include <arpa/inet.h>
 
 #define MAX_FILES 10000
- 
+
+// Global Variables
 movie *Globalarray;
 int colnum;
 pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
@@ -26,51 +27,47 @@ char *output_dir;
 int hasoutput;
 int hasinput;
 
-int loadArray(char * data, movie * array)
-{
+int loadArray(char * data, movie * array) {
 
     int size = 128;
-    char *line = strsep(&data, "\n");// remove column headings
+    char *line = strsep(&data, "\n"); // remove column headings
     //printf("token: %s\n", token);
     char * token=0;
 
     line = strsep(&data, "\n");
     int i=0;
 
-
+    // Tokenize all data from given line (obtained from buffer) and load into an array
     while(line != NULL){
+        
         //printf("line %i: %s\n", i, token);
-       
         //char *token;
-       
-        // 1) STRING - Color
  
-        if(strlen(line)==0)
-        {
+        if(strlen(line)==0){
             //printf("End of input, breaking\n");
             break;
         }
+        
+        if(strlen(line) < 27){
+            break;
+        }
 	
-	if(strlen(line)<27)
-	{
-		break;
-	}
-	
- 	//,,,,,,,,,,,,,,,,,,,,,,,,,,\n\0
-            token = strsep(&line, ",");
+        // 1) STRING - Color
+        //,,,,,,,,,,,,,,,,,,,,,,,,,,\n\0
+        token = strsep(&line, ",");
         //printf("*****%s*****\n",token);
-            trim(token); //remove trailing and leading spaces
-            array[i].color = malloc(strlen(token) + 1);
-            strcpy(array[i].color, token);
+        trim(token); //remove trailing and leading spaces
+        array[i].color = malloc(strlen(token) + 1);
+        strcpy(array[i].color, token);
         //printf("color: %s\n", array[i].color);
  
-            // 2) STRING - Director Name
-            token = strsep(&line, ",");
-            array[i].directorName=malloc(strlen(token) + 1);
-            strcpy(array[i].directorName, token);
+        // 2) STRING - Director Name
+        token = strsep(&line, ",");
+        array[i].directorName=malloc(strlen(token) + 1);
+        strcpy(array[i].directorName, token);
         //printf("director name: %s\n", array[i].directorName);
        
-            // 3) INT - Number of critic review
+        // 3) INT - Number of critic review
         token = strsep(&line, ",");
         if(token[0] == '\0'){
             array[i].numCriticReviews = -1;
@@ -212,8 +209,8 @@ int loadArray(char * data, movie * array)
            
         // 23) INT - Budget
         token = strsep(&line, ",");
-	//printf("%s\n", token);
-	//printf("%i\n",atoi(token));
+        //printf("%s\n", token);
+        //printf("%i\n",atoi(token));
         if(token[0] == '\0'){
             array[i].budget = -1;
         } else {
@@ -255,7 +252,7 @@ int loadArray(char * data, movie * array)
            
         // 28) INT - Movie Facebook Likes
         token = strsep(&line, ",");
-	//printf("token: %s\n", token);
+        //printf("token: %s\n", token);
         if(token[0] == '\0'){
             array[i].movieFBlikes = -1;
         } else {
@@ -264,13 +261,17 @@ int loadArray(char * data, movie * array)
  
         line = strsep(&data, "\n");
         i++;
-    }	
+        
+    } //end of while loop
+    
 	free(data);
+    
  	return i;
-	
-}
+    
+} //end of 'loadArray' function
  
 void *clientHandler(void *fd) {
+    
 	int comm_fd = *(int*) fd;
 	int rc;
 	char buff[20];
@@ -280,9 +281,10 @@ void *clientHandler(void *fd) {
 	char signal[20];
 	
 	
-	recv(comm_fd,signal,20,0);	
-	if(strcmp(signal,"Sending_File")==0)
-	{	
+	recv(comm_fd,signal,20,0);
+    
+	if(strcmp(signal,"Sending_File")==0){
+        
 		//printf("Received SF signal, now receiving buffsize...\n");
 		rc = recv(comm_fd, buff, 20, 0); 	//gets size of incoming csv file **(in the form of a CHAR ARRAY)
 		buffSize = atoi(buff); 		//puts size of incoming csv file into an integer
@@ -292,7 +294,9 @@ void *clientHandler(void *fd) {
 		char * data = calloc(sizeof(char), buffSize); //initializes the 
 		movie * array = malloc(buffSize * 1.5);
 		int bytesrec=0;
+        
 		while(1){
+            
 			bzero(buffer, buffSize);  //this nulls out "buffer" so theres no leftover characters each time it reads from client
 				
 			rc = recv(comm_fd, buffer, buffSize, 0);  //reads from client and puts it into str
@@ -300,51 +304,49 @@ void *clientHandler(void *fd) {
 			//printf("rc: %d\n", rc);
 			strcat(data, buffer);
 
-			if(bytesrec >= buffSize)
-			{
+			if(bytesrec >= buffSize){
 				break;
 			}
 
-			  	//*** Puts all of the data received from the buffer into a fixed char array called data 
-						//WITH multi-threads, you need to adjust the size of data.  RIGHT NOW, the data array isn't big enough
 		}
+        
 		//printf("bytesrec =%d",bytesrec);
 		//printf("%d",data);	
 		int i = loadArray(data, array);
 		//mergesort(array, ,i);
-	
-		pthread_mutex_lock(&m);
-		//     (Load stuff into the global array)
-			int currsize = Globalarraysize;
-		    	Globalarraysize+=i;
-			//printf("Globalarraysize:%d\n",Globalarraysize);
-		    	Globalarray=realloc(Globalarray,Globalarraysize*sizeof(movie));
-			int k;
-			int l = 0;	
-			for(k=currsize; k<Globalarraysize; k++)
-			{
-			Globalarray[k] = array[l];
-			l++;
-			}
-			free(array);
-		pthread_mutex_unlock(&m);
 
-		send(comm_fd, "FUF", 20, 0);
-	}
-	else if(strcmp(signal,"Dump_Request")==0)
-	{
+		pthread_mutex_lock(&m);
+		// (Load stuff into the global array)
+        int currsize = Globalarraysize;
+        Globalarraysize+=i;
+        //printf("Globalarraysize:%d\n",Globalarraysize);
+        Globalarray=realloc(Globalarray,Globalarraysize*sizeof(movie));
+        int k;
+        int l = 0;
+        
+        for(k=currsize; k<Globalarraysize; k++){
+            Globalarray[k] = array[l];
+			l++;
+        }
+        
+        free(array);
+		pthread_mutex_unlock(&m);
+        send(comm_fd, "FUF", 20, 0);
+        
+	} else if(strcmp(signal, "Dump_Request") == 0){
+        
 		char colchar[20];
 		int colnum;
 		//printf("Recieved dump request\n");
-		recv(comm_fd,colchar,20,0);
+		recv(comm_fd, colchar, 20, 0);
 		colnum = atoi(colchar);
-		//printf("Column number is: %d\n",colnum);
-		//printf("Global array size is: %d\n",Globalarraysize);
+		//printf("Column number is: %d\n", colnum);
+		//printf("Global array size is: %d\n",G lobalarraysize);
 		
 		pthread_mutex_lock(&m);
-		mergesort(Globalarray,colnum,Globalarraysize);
+		mergesort(Globalarray, colnum, Globalarraysize);
 		pthread_mutex_unlock(&m);
-		movie * array = Globalarray;
+		movie *array = Globalarray;
 		char finalline[3000];
 		
 		char num[20];
@@ -354,8 +356,7 @@ void *clientHandler(void *fd) {
 				
 		int k;		
 		for(k=0; k<Globalarraysize; k++){
-					//this if statement takes each title with a "," and puts quotations around it
-			if(strchr(array[k].movieTitle,',')){ //detection works fine
+			if(strchr(array[k].movieTitle,',')){ //this if statement takes each title with a "," and puts quotations around it -> detection works fine
 
 			    	char qm1[100] = "";
 			    	char qm2[100] = "";
@@ -365,6 +366,7 @@ void *clientHandler(void *fd) {
 			    	strcat(qm1,qm2);
 			    	array[k].movieTitle = qm1;
 			}
+            
 			//printf("%s,%s,%d,%d,%d,%d,%s,%d,%f,%s,%s,%s,%d,%d,%s,%d,%s,%s,%d,%s,%s,%s,%d,%d,%d,%f,%f,%d\n", array[k].color,array[k].directorName,array[k].numCriticReviews,array[k].duration, array[k].directorFBlikes, array[k].actor3FBlikes, array[k].actor2name,array[k].actor1FBlikes,array[k].gross, array[k].genres, array[k].actor1name, array[k].movieTitle, array[k].numVotedUsers,array[k].castTotalFBlikes, array[k].actor3name,array[k].faceNumberPoster, array[k].plotKeywords, array[k].link, array[k].numUserReviews,array[k].language,array[k].country,array[k].contentRating,array[k].budget,array[k].titleYear,array[k].actor2FBlikes,array[k].imdbScore,array[k].aspectRatio,array[k].movieFBlikes);			
 			
 			snprintf(finalline, 3000, "%s,%s,%i,%i,%i,%i,%s,%i,%i,%s,%s,%s,%i,%i,%s,%i,%s,%s,%i,%s,%s,%s,%i,%i,%i,%f,%f,%i\n", array[k].color,array[k].directorName,array[k].numCriticReviews,array[k].duration, array[k].directorFBlikes, array[k].actor3FBlikes, array[k].actor2name,array[k].actor1FBlikes,array[k].gross, array[k].genres, array[k].actor1name, array[k].movieTitle, array[k].numVotedUsers,array[k].castTotalFBlikes, array[k].actor3name,array[k].faceNumberPoster, array[k].plotKeywords, array[k].link, array[k].numUserReviews,array[k].language,array[k].country,array[k].contentRating,array[k].budget,array[k].titleYear,array[k].actor2FBlikes,array[k].imdbScore,array[k].aspectRatio,array[k].movieFBlikes);
@@ -374,22 +376,18 @@ void *clientHandler(void *fd) {
 		}
 		
 
-	}
-		
-	else
-	{
-		printf("Received unknown input, breaking.\n");
+	} else {
+        printf("Received unknown input, breaking.\n");
 		return;
 	}
+    
 	//send FINISHED signal back to client.
 
-
-}
+} //end of 'clientHandler' function
 
 int main(int argc, char ** argv){
 	
-
-	  long port = -1;
+    long port = -1;
    
     if(argc != 3){
         printf("ERROR: Incorrect number of arguments.\n");
@@ -408,8 +406,6 @@ int main(int argc, char ** argv){
         port = atol(argv[2]);
     }
 
-
-	
 	Globalarraysize = 0;
 	int listen_fd, comm_fd[MAX_FILES];
 	
@@ -419,8 +415,8 @@ int main(int argc, char ** argv){
 	listen_fd = socket(AF_INET, SOCK_STREAM, 0);
 
 	servaddr.sin_family = AF_INET;
-    	servaddr.sin_addr.s_addr = INADDR_ANY;
-    	servaddr.sin_port = htons(port);
+    servaddr.sin_addr.s_addr = INADDR_ANY;
+    servaddr.sin_port = htons(port);
 
 	int len = sizeof(servaddr);
 	bind(listen_fd, (struct sockaddr *) &servaddr, sizeof(servaddr));
@@ -430,7 +426,7 @@ int main(int argc, char ** argv){
 	int threadcount = 0;
 	pthread_t tids[4096];
 	while(1){
-	    	comm_fd[threadcount] = accept(listen_fd, (struct sockaddr*) &servaddr, (socklen_t *) &len);
+        comm_fd[threadcount] = accept(listen_fd, (struct sockaddr*) &servaddr, (socklen_t *) &len);
 	 	//printf("Accepted a client \n");
 
 		printf("%s, ", inet_ntoa(servaddr.sin_addr));
@@ -440,6 +436,6 @@ int main(int argc, char ** argv){
 		fflush(stdout);
 	}
 
-
 	return 0;
-}
+    
+} //end of 'main' function
